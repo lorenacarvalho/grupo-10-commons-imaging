@@ -18,6 +18,8 @@
 package org.apache.commons.imaging.internal;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -27,6 +29,22 @@ import org.apache.commons.imaging.ImageFormats;
 import org.apache.commons.imaging.Imaging;
 import org.apache.commons.imaging.ImagingParameters;
 import org.apache.commons.imaging.bytesource.ByteSource;
+import org.apache.commons.imaging.formats.bmp.BmpImageParser;
+import org.apache.commons.imaging.formats.dcx.DcxImageParser;
+import org.apache.commons.imaging.formats.gif.GifImageParser;
+import org.apache.commons.imaging.formats.icns.IcnsImageParser;
+import org.apache.commons.imaging.formats.ico.IcoImageParser;
+import org.apache.commons.imaging.formats.jpeg.JpegImageParser;
+import org.apache.commons.imaging.formats.pcx.PcxImageParser;
+import org.apache.commons.imaging.formats.png.PngImageParser;
+import org.apache.commons.imaging.formats.pnm.PnmImageParser;
+import org.apache.commons.imaging.formats.psd.PsdImageParser;
+import org.apache.commons.imaging.formats.rgbe.RgbeImageParser;
+import org.apache.commons.imaging.formats.tiff.TiffImageParser;
+import org.apache.commons.imaging.formats.wbmp.WbmpImageParser;
+import org.apache.commons.imaging.formats.webp.WebPImageParser;
+import org.apache.commons.imaging.formats.xbm.XbmImageParser;
+import org.apache.commons.imaging.formats.xpm.XpmImageParser;
 
 /**
  * Internal utilities.
@@ -34,6 +52,20 @@ import org.apache.commons.imaging.bytesource.ByteSource;
  * @since 1.0-alpha3
  */
 public final class ImageParserFactory {
+
+    /**
+     * Gets an array of new instances of all image parsers.
+     *
+     * @return A valid array of image parsers
+     */
+    public static List<AbstractImageParser<?>> getAllImageParsers() {
+        return Arrays.asList(new BmpImageParser(), new DcxImageParser(), new GifImageParser(), new IcnsImageParser(), new IcoImageParser(),
+                new JpegImageParser(), new PcxImageParser(), new PngImageParser(), new PnmImageParser(), new PsdImageParser(), new RgbeImageParser(),
+                new TiffImageParser(), new WebPImageParser(), new WbmpImageParser(), new XbmImageParser(), new XpmImageParser()
+        // new JBig2ImageParser(),
+        // new TgaImageParser(),
+        );
+    }
 
     /**
      * Gets an image parser for the given byte source.
@@ -72,7 +104,7 @@ public final class ImageParserFactory {
     @SuppressWarnings("unchecked")
     private static <T extends ImagingParameters<T>> AbstractImageParser<T> getImageParser(final Predicate<AbstractImageParser<?>> pred,
             final Supplier<? extends RuntimeException> supplier) {
-        return (AbstractImageParser<T>) AbstractImageParser.getAllImageParsers().stream().filter(pred).findFirst().orElseThrow(supplier);
+        return (AbstractImageParser<T>) getAllImageParsers().stream().filter(pred).findFirst().orElseThrow(supplier);
     }
 
     /**
