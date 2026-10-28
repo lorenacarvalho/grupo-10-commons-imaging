@@ -84,17 +84,23 @@ public class ExifRewriter extends BinaryFileParser {
 
     }
 
-    private static class JFIFPieceSegment extends JFIFPiece {
+    private static final class JFIFPieceSegment extends JFIFPiece {
         public final int marker;
         public final byte[] markerBytes;
         public final byte[] markerLengthBytes;
         public final byte[] segmentData;
+        public final boolean exif;
 
         JFIFPieceSegment(final int marker, final byte[] markerBytes, final byte[] markerLengthBytes, final byte[] segmentData) {
+            this(marker, markerBytes, markerLengthBytes, segmentData, false);
+        }
+
+        JFIFPieceSegment(final int marker, final byte[] markerBytes, final byte[] markerLengthBytes, final byte[] segmentData, final boolean exif) {
             this.marker = marker;
             this.markerBytes = markerBytes;
             this.markerLengthBytes = markerLengthBytes;
             this.segmentData = segmentData;
+            this.exif = exif;
         }
 
         @Override
@@ -102,13 +108,6 @@ public class ExifRewriter extends BinaryFileParser {
             os.write(markerBytes);
             os.write(markerLengthBytes);
             os.write(segmentData);
-        }
-    }
-
-    private static final class JFIFPieceSegmentExif extends JFIFPieceSegment {
-
-        JFIFPieceSegmentExif(final int marker, final byte[] markerBytes, final byte[] markerLengthBytes, final byte[] segmentData) {
-            super(marker, markerBytes, markerLengthBytes, segmentData);
         }
     }
 
@@ -151,7 +150,7 @@ public class ExifRewriter extends BinaryFileParser {
                 if (marker != JpegConstants.JPEG_APP1_MARKER || !JpegConstants.EXIF_IDENTIFIER_CODE.isStartOf(segmentData)) {
                     pieces.add(new JFIFPieceSegment(marker, markerBytes, markerLengthBytes, segmentData));
                 } else {
-                    final JFIFPiece piece = new JFIFPieceSegmentExif(marker, markerBytes, markerLengthBytes, segmentData);
+                    final JFIFPiece piece = new JFIFPieceSegment(marker, markerBytes, markerLengthBytes, segmentData, true);
                     pieces.add(piece);
                     exifPieces.add(piece);
                 }
@@ -457,6 +456,10 @@ public class ExifRewriter extends BinaryFileParser {
         return os.toByteArray();
     }
 
+    private static boolean isExifPiece(final JFIFPiece piece) {
+        return piece instanceof JFIFPieceSegment && ((JFIFPieceSegment) piece).exif;
+    }
+
     private void writeSegmentsReplacingExif(final OutputStream outputStream, final List<JFIFPiece> segments, final byte[] newBytes)
             throws ImagingException, IOException {
 
@@ -466,7 +469,7 @@ public class ExifRewriter extends BinaryFileParser {
             boolean hasExif = false;
 
             for (final JFIFPiece piece : segments) {
-                if (piece instanceof JFIFPieceSegmentExif) {
+                if (isExifPiece(piece)) {
                     hasExif = true;
                     break;
                 }
@@ -485,13 +488,13 @@ public class ExifRewriter extends BinaryFileParser {
                 if (firstSegment.marker == JpegConstants.JFIF_MARKER) {
                     index = 1;
                 }
-                segments.add(index, new JFIFPieceSegmentExif(JpegConstants.JPEG_APP1_MARKER, markerBytes, markerLengthBytes, newBytes));
+                segments.add(index, new JFIFPieceSegment(JpegConstants.JPEG_APP1_MARKER, markerBytes, markerLengthBytes, newBytes, true));
             }
 
             boolean APP1Written = false;
 
             for (final JFIFPiece piece : segments) {
-                if (piece instanceof JFIFPieceSegmentExif) {
+                if (isExifPiece(piece)) {
                     // only replace first APP1 segment; skips others.
                     if (APP1Written) {
                         continue;
