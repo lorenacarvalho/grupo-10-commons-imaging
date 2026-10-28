@@ -26,10 +26,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Stream;
 
 import org.apache.commons.imaging.bytesource.ByteSource;
 import org.apache.commons.imaging.common.ImageMetadata;
@@ -37,6 +35,7 @@ import org.apache.commons.imaging.common.XmpEmbeddable;
 import org.apache.commons.imaging.icc.IccProfileInfo;
 import org.apache.commons.imaging.icc.IccProfileParser;
 import org.apache.commons.imaging.internal.ImageParserFactory;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -85,36 +84,6 @@ import org.apache.commons.lang3.StringUtils;
  * @see <a href="https://commons.apache.org/imaging/formatsupport.html">Format Support</a>
  */
 public final class Imaging {
-
-    private static final int[] MAGIC_NUMBERS_GIF = { 0x47, 0x49, };
-    private static final int[] MAGIC_NUMBERS_PNG = { 0x89, 0x50, };
-    private static final int[] MAGIC_NUMBERS_JPEG = { 0xff, 0xd8, };
-    private static final int[] MAGIC_NUMBERS_BMP = { 0x42, 0x4d, };
-    private static final int[] MAGIC_NUMBERS_TIFF_MOTOROLA = { 0x4D, 0x4D, };
-    private static final int[] MAGIC_NUMBERS_TIFF_INTEL = { 0x49, 0x49, };
-    private static final int[] MAGIC_NUMBERS_PAM = { 0x50, 0x37, };
-    private static final int[] MAGIC_NUMBERS_PSD = { 0x38, 0x42, };
-    private static final int[] MAGIC_NUMBERS_PBM_A = { 0x50, 0x31, };
-    private static final int[] MAGIC_NUMBERS_PBM_B = { 0x50, 0x34, };
-    private static final int[] MAGIC_NUMBERS_PGM_A = { 0x50, 0x32, };
-    private static final int[] MAGIC_NUMBERS_PGM_B = { 0x50, 0x35, };
-    private static final int[] MAGIC_NUMBERS_PPM_A = { 0x50, 0x33, };
-    private static final int[] MAGIC_NUMBERS_PPM_B = { 0x50, 0x36, };
-    private static final int[] MAGIC_NUMBERS_JBIG2_1 = { 0x97, 0x4A, };
-    private static final int[] MAGIC_NUMBERS_JBIG2_2 = { 0x42, 0x32, };
-    private static final int[] MAGIC_NUMBERS_ICNS = { 0x69, 0x63, };
-    private static final int[] MAGIC_NUMBERS_DCX = { 0xB1, 0x68, };
-    private static final int[] MAGIC_NUMBERS_RGBE = { 0x23, 0x3F, };
-    private static final int[] MAGIC_NUMBERS_RIFF_1 = { 0x52, 0x49, };
-    private static final int[] MAGIC_NUMBERS_RIFF_2 = { 0x46, 0x46, };
-    private static final byte[] MAGIC_NUMBERS_WEBP = { 0x57, 0x45, 0x42, 0x50, };
-
-    private static boolean compareBytePair(final int[] a, final int[] b) {
-        if (a.length != 2 && b.length != 2) {
-            throw new IllegalArgumentException("Invalid Byte Pair.");
-        }
-        return a[0] == b[0] && a[1] == b[1];
-    }
 
     /**
      * Writes the ImageInfo and format-specific information for the image content of the specified byte array to a string.
@@ -713,109 +682,12 @@ public final class Imaging {
         }
 
         try (InputStream is = byteSource.getInputStream()) {
-            final int i1 = is.read();
-            final int i2 = is.read();
-            if (i1 < 0 || i2 < 0) {
+            final byte[] header = new byte[ImageFormats.maxMagicNumberLength()];
+            final int headerLength = IOUtils.read(is, header);
+            if (headerLength < 2) {
                 throw new IllegalArgumentException("Couldn't read magic numbers to guess format.");
             }
-
-            final int b1 = i1 & 0xff;
-            final int b2 = i2 & 0xff;
-            final int[] bytePair = { b1, b2, };
-
-            if (compareBytePair(MAGIC_NUMBERS_GIF, bytePair)) {
-                return ImageFormats.GIF;
-                // } else if (b1 == 0x00 && b2 == 0x00) // too similar to TGA
-                // {
-                // return ImageFormat.IMAGE_FORMAT_ICO;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_PNG, bytePair)) {
-                return ImageFormats.PNG;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_JPEG, bytePair)) {
-                return ImageFormats.JPEG;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_BMP, bytePair)) {
-                return ImageFormats.BMP;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_TIFF_MOTOROLA, bytePair)) {
-                return ImageFormats.TIFF;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_TIFF_INTEL, bytePair)) {
-                return ImageFormats.TIFF;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_PSD, bytePair)) {
-                return ImageFormats.PSD;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_PAM, bytePair)) {
-                return ImageFormats.PAM;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_PBM_A, bytePair)) {
-                return ImageFormats.PBM;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_PBM_B, bytePair)) {
-                return ImageFormats.PBM;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_PGM_A, bytePair)) {
-                return ImageFormats.PGM;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_PGM_B, bytePair)) {
-                return ImageFormats.PGM;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_PPM_A, bytePair)) {
-                return ImageFormats.PPM;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_PPM_B, bytePair)) {
-                return ImageFormats.PPM;
-            }
-            if (compareBytePair(MAGIC_NUMBERS_JBIG2_1, bytePair)) {
-                final int i3 = is.read();
-                final int i4 = is.read();
-                if (i3 < 0 || i4 < 0) {
-                    throw new IllegalArgumentException("Couldn't read magic numbers to guess format.");
-                }
-
-                final int b3 = i3 & 0xff;
-                final int b4 = i4 & 0xff;
-                final int[] bytePair2 = { b3, b4, };
-                if (compareBytePair(MAGIC_NUMBERS_JBIG2_2, bytePair2)) {
-                    return ImageFormats.JBIG2;
-                }
-            } else if (compareBytePair(MAGIC_NUMBERS_ICNS, bytePair)) {
-                return ImageFormats.ICNS;
-            } else if (compareBytePair(MAGIC_NUMBERS_DCX, bytePair)) {
-                return ImageFormats.DCX;
-            } else if (compareBytePair(MAGIC_NUMBERS_RGBE, bytePair)) {
-                return ImageFormats.RGBE;
-            } else if (compareBytePair(MAGIC_NUMBERS_RIFF_1, bytePair)) {
-                final int i3 = is.read();
-                final int i4 = is.read();
-                if (i3 < 0 || i4 < 0) {
-                    throw new IllegalArgumentException("Couldn't read magic numbers to guess format.");
-                }
-
-                final int b3 = i3 & 0xff;
-                final int b4 = i4 & 0xff;
-                final int[] bytePair2 = { b3, b4, };
-                if (compareBytePair(MAGIC_NUMBERS_RIFF_2, bytePair2)) {
-                    final byte[] bytes = new byte[4];
-                    if (is.read(bytes) < 4) { // Skip file size
-                        throw new IllegalArgumentException("Couldn't read magic numbers to guess format.");
-                    }
-
-                    if (is.read(bytes) == 4 && Arrays.equals(MAGIC_NUMBERS_WEBP, bytes)) {
-                        return ImageFormats.WEBP;
-                    }
-                }
-            }
-            return Stream.of(ImageFormats.values()).filter(imageFormat -> Stream.of(imageFormat.getExtensions()).anyMatch(extension -> {
-                final String fileName = byteSource.getFileName();
-                if (StringUtils.isEmpty(fileName)) {
-                    return false;
-                }
-                final String fileExtension = fileName.substring(fileName.lastIndexOf('.') + 1);
-                return fileExtension.equalsIgnoreCase(extension);
-            })).findFirst().orElse(ImageFormats.UNKNOWN);
+            return ImageFormats.findByMagicNumbers(header, headerLength).orElseGet(() -> ImageFormats.findByFileName(byteSource.getFileName()));
         }
     }
 
@@ -862,7 +734,7 @@ public final class Imaging {
             return false;
         }
         final String normalizedFileName = StringUtils.toRootLowerCase(fileName);
-        for (final AbstractImageParser<?> imageParser : AbstractImageParser.getAllImageParsers()) {
+        for (final AbstractImageParser<?> imageParser : ImageParserFactory.getAllImageParsers()) {
             for (final String extension : imageParser.getAcceptedExtensions()) {
                 if (normalizedFileName.endsWith(StringUtils.toRootLowerCase(extension))) {
                     return true;
